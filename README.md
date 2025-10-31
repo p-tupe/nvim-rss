@@ -4,6 +4,8 @@
 <p align="center">A simple rss reader for neovim.</p>
 <br />
 
+> Fri 31st Oct 2025: I'm planning to cut sqlite dependency and fix some long-standing bugs by the end of this year!
+
 ## Intro
 
 nvim-rss aims to be similar to the excellent [vnews](https://github.com/danchoi/vnews) and, if you squint hard enough while looking sideways, then perhaps [elfeed](https://github.com/skeeto/elfeed).
