@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+  viewBox="0 0 455.731 455.731" xml:space="preserve">
+  <defs>
+    <linearGradient x1="50%" y1="0%" x2="50%" y2="100%" id="linearGradient-1">
+      <stop stop-color="#16B0ED" stop-opacity="0.800235524" offset="0%"></stop>
+      <stop stop-color="#0F59B2" stop-opacity="0.83700023" offset="100%"></stop>
+    </linearGradient>
+    <linearGradient x1="50%" y1="0%" x2="50%" y2="100%" id="linearGradient-2">
+      <stop stop-color="#7DB643" offset="0%"></stop>
+      <stop stop-color="#367533" offset="100%"></stop>
+    </linearGradient>
+    <linearGradient x1="50%" y1="0%" x2="50%" y2="100%" id="linearGradient-3">
+      <stop stop-color="#88C649" stop-opacity="0.8" offset="0%"></stop>
+      <stop stop-color="#439240" stop-opacity="0.84" offset="100%"></stop>
+    </linearGradient>
+  </defs>
+  <g>
+    <rect x="0" y="0" style="fill:transparent;" width="455.731" height="455.731"/>
+    <g>
+      <path style="fill:url(#linearGradient-2)" d="M296.208,159.16C234.445,97.397,152.266,63.382,64.81,63.382v64.348
+                                                 c70.268,0,136.288,27.321,185.898,76.931c49.609,49.61,76.931,115.63,76.931,185.898h64.348
+                                                 C391.986,303.103,357.971,220.923,296.208,159.16z"/>
+      <path style="fill:url(#linearGradient-2);" d="M64.143,172.273v64.348c84.881,0,153.938,69.056,153.938,153.939h64.348
+                                                  C282.429,270.196,184.507,172.273,64.143,172.273z"/>
+      <circle style="fill:url(#linearGradient-1);" cx="109.833" cy="346.26" r="46.088"/>
+    </g>
+  </g>
+</svg>

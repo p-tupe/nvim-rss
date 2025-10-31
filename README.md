@@ -1,6 +1,7 @@
 <br />
-<h1 align="center">NVIM-RSS</h1>
-<p align="center">A simple rss reader for neovim written in lua.</p>
+<div style="width:100%" align="center"> <img src="./logo.svg" alt="nvim.rss Image"> </div>
+<h1 align="center">nvim.rss</h1>
+<p align="center">A simple rss reader for neovim.</p>
 <br />
 
 ## Intro
