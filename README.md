@@ -10,9 +10,7 @@ nvim-rss aims to be similar to the excellent [vnews](https://github.com/danchoi/
 
 Ideally, if you have a bunch of feeds and simply wish to view the latest entries in neovim instead of browsers or dedicated apps, then this plugin should help you out.
 
-## Demo (v0.2)
-
-https://user-images.githubusercontent.com/9110181/141071168-ce671cd5-3f9b-4b68-b0d0-bb76abb7a8c5.mp4
+## Quick Demo (v0.5)
 
 ## Pre-requisites
 
@@ -31,7 +29,7 @@ https://user-images.githubusercontent.com/9110181/141071168-ce671cd5-3f9b-4b68-b
 ## Setup
 
 ```lua
--- Default options
+-- Default values (all are optional)
 require("nvim-rss").setup({
   feeds_dir = "~",       -- Directory for nvim.rss file
   star_updated = true,   -- Show * for updated feeds
@@ -41,7 +39,15 @@ require("nvim-rss").setup({
 
 **Note:** Feed data is now cached in `~/.nvim-rss-cache/` (or `<feeds_dir>/.nvim-rss-cache/`) as raw XML files.
 
-## Usage
+## Barebones
+
+- Install and setup nvim-rss
+- Exec `:lua require("nvim-rss").open_feeds_tab()`
+- Add a feed url to `nvim.rss` file (eg `https://priteshtupe.com/rss.xml`)
+- Ensure your cursor is still on the url and exec `:lua require("nvim-rss").fetch_feed()`
+- Profit!
+
+## Interface
 
 **By default, no mappings/commands present. All functions are exposed so you may use them as you like!**
 
