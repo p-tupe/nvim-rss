@@ -10,7 +10,9 @@ nvim-rss aims to be similar to the excellent [vnews](https://github.com/danchoi/
 
 Ideally, if you have a bunch of feeds and simply wish to view the latest entries in neovim instead of browsers or dedicated apps, then this plugin should help you out.
 
-## Quick Demo (v0.5)
+## Quick Demo (v0.4)
+
+https://github.com/user-attachments/assets/7b9a5ec5-82af-4eed-8882-19be31d04f32
 
 ## Pre-requisites
 
