@@ -25,14 +25,17 @@ https://user-images.githubusercontent.com/9110181/141071168-ce671cd5-3f9b-4b68-b
 
 ```lua
 -- In your package manager
-{"p-tupe/nvim-rss"}
+{ "p-tupe/nvim-rss" }
 ```
 
 ## Setup
 
 ```lua
+-- Default options
 require("nvim-rss").setup({
-  feeds_dir = "~",  -- Directory for nvim.rss file (default: "~")
+  feeds_dir = "~",       -- Directory for nvim.rss file
+  star_updated = true,   -- Show * for updated feeds
+  log_level = "info",    -- "error" | "info" | "debug"
 })
 ```
 
@@ -70,13 +73,17 @@ require("nvim-rss").setup({
 
   Removes cached data for a particular feed. Useful to force a fresh fetch.
 
-- Reset everything: `reset_db()`
+- Reset everything: `clean_all_feeds()`
 
-  Clears all cached feeds. Use with caution.
+  Clears all cached feeds.
 
 - Import OPML file: `import_opml(opml_file)`
 
   Parses the supplied file, extracts feed links if they exist and dumps them under "OPML Import" inside nvim.rss. They are not cached unless you explicitly fetch feeds for the links!
+
+- Export OPML file: `export_opml(opml_file)`
+
+  Exports all feeds from nvim.rss to an OPML file. Useful for backing up your feeds or importing them into other RSS readers.
 
 ---
 
@@ -99,19 +106,35 @@ vim.cmd [[
 
   command! CleanFeed lua require("nvim-rss").clean_feed()
 
-  command! CleanAllFeeds lua require("nvim-rss").reset_db()
+  command! CleanAllFeeds lua require("nvim-rss").clean_all_feeds()
 
   command! -nargs=1 ImportOpml lua require("nvim-rss").import_opml(<args>)
+
+  command! -nargs=1 ExportOpml lua require("nvim-rss").export_opml(<args>)
 
 ]]
 ```
 
-NOTE: The command ImportOpml requires a full path and surrounding quotes.
+NOTE: The ImportOpml and ExportOpml commands require a full path and surrounding quotes.
 
 ```vim
-
 :ImportOpml "/home/user/Documents/rss-file.opml"
-
+:ExportOpml "/home/user/Documents/my-feeds.opml"
 ```
 
-_Checkout my feeds list [here](https://github.com/EMPAT94/dotfiles/blob/main/nvim/.config/nvim/nvim.rss)_
+_Checkout a sample feeds list [here](https://github.com/EMPAT94/dotfiles/blob/main/nvim/.config/nvim/nvim.rss)_
+
+## Some QoL Tips
+
+### Auto-fetch all feeds on opening rss file
+
+Add this autocmd to automatically fetch all feeds when you open your nvim.rss file:
+
+```lua
+vim.api.nvim_create_autocmd("BufRead", {
+  pattern = "*/nvim.rss",
+  callback = function()
+    require("nvim-rss").fetch_all_feeds()
+  end,
+})
+```

@@ -23,7 +23,7 @@ end
 
 function M.update_feed_line(opt)
 	-- Don't update if asterisk is disabled
-	if opt.show_asterisk == false then
+	if opt.star_updated == false then
 		return
 	end
 
@@ -68,19 +68,26 @@ end
 function M.create_feed_buffer()
 	vim.cmd([[
 
+    " Close window if __FEED__ is open
     let win = bufwinnr("__FEED__")
-
-    if win == -1
-      vsplit __FEED__
-      setlocal buftype=nofile
-      setlocal nobackup noswapfile nowritebackup
-      setlocal noautoindent nosmartindent
-      setlocal nonumber norelativenumber
-      setlocal filetype=markdown
-    else
-      exe win . "winvim.cmd w"
-      normal! ggdG
+    if win != -1
+      exe win . "wincmd w"
+      close
     endif
+
+    " Delete __FEED__ buffer if it exists
+    let buf = bufnr("__FEED__")
+    if buf != -1
+      exe "bwipeout! " . buf
+    endif
+
+    " Always create fresh buffer
+    vsplit __FEED__
+    setlocal buftype=nofile
+    setlocal nobackup noswapfile nowritebackup
+    setlocal noautoindent nosmartindent
+    setlocal nonumber norelativenumber
+    setlocal filetype=markdown
 
   ]])
 end

@@ -8,6 +8,11 @@ local options = {}
 local feeds_file
 local feed_changed = {} -- Track which feeds have changed
 
+-- Concurrent fetch queue management
+local active_fetches = 0
+local fetch_queue = {}
+local max_concurrent_fetches = 5
+
 -- Helper function for notifications with verbosity control
 local function notify(msg, level)
 	level = level or vim.log.levels.INFO
@@ -15,6 +20,8 @@ local function notify(msg, level)
 	if level >= vim.log.levels.WARN then
 		vim.notify(msg, level)
 	elseif options.log_level == "debug" then
+		vim.notify(msg, level)
+	elseif options.log_level == "info" and level >= vim.log.levels.INFO then
 		vim.notify(msg, level)
 	end
 end
@@ -47,22 +54,68 @@ local function update_line(parsed_feed)
 	buffer.update_feed_line({
 		xmlUrl = parsed_feed.xmlUrl,
 		changed = changed,
-		show_asterisk = options.show_asterisk or true,
+		star_updated = options.star_updated or true,
 	})
 end
 
+-- Process next item in fetch queue
+local function process_queue()
+	if active_fetches >= max_concurrent_fetches or #fetch_queue == 0 then
+		return
+	end
+
+	local next_fetch = table.remove(fetch_queue, 1)
+	if next_fetch then
+		next_fetch()
+	end
+end
+
+-- Validate URL format
+local function is_valid_url(url)
+	if not url or url == "" then
+		return false
+	end
+	-- Check for http:// or https:// followed by valid domain
+	return url:match("^https?://[%w%-%.]+") ~= nil
+end
+
 local function web_request(url, callback)
+	-- Validate URL before making request
+	if not is_valid_url(url) then
+		notify("Invalid URL format: " .. tostring(url), vim.log.levels.ERROR)
+		return
+	end
+
+	-- Queue management: if at capacity, queue the request
+	if active_fetches >= max_concurrent_fetches then
+		table.insert(fetch_queue, function()
+			web_request(url, callback)
+		end)
+		return
+	end
+
+	-- Increment active fetches
+	active_fetches = active_fetches + 1
+
 	local raw_feed = ""
 	local stdin = vim.loop.new_pipe(false)
 	local stdout = vim.loop.new_pipe(false)
 	local stderr = vim.loop.new_pipe(false)
 
-	notify("Fetching feed " .. url .. "...", vim.log.levels.INFO)
+	notify("Fetching feed " .. url .. "...", vim.log.levels.DEBUG)
 
+	local handle
 	handle = vim.loop.spawn(
 		"curl",
 		{
-			args = { "-L", "--user-agent", "Mozilla/5.0 (X11; Linux x86_64; rv:60.0) Gecko/20100101 Firefox/90.0", url },
+			args = {
+				"-L",
+				"--max-time",
+				tostring(options.fetch_timeout),
+				"--user-agent",
+				"Mozilla/5.0 (X11; Linux x86_64; rv:60.0) Gecko/20100101 Firefox/90.0",
+				url,
+			},
 			stdio = { stdin, stdout, stderr },
 		},
 		vim.schedule_wrap(function(err, msg)
@@ -77,6 +130,10 @@ local function web_request(url, callback)
 			if not handle:is_closing() then
 				handle:close()
 			end
+
+			-- Decrement active fetches and process queue
+			active_fetches = active_fetches - 1
+			vim.schedule(process_queue)
 
 			if err ~= 0 then
 				local error_msg = "Failed to fetch " .. url .. ": " .. get_curl_error_message(err)
@@ -144,7 +201,7 @@ function M.fetch_feed()
 		buffer.update_feed_line({
 			xmlUrl = parsed_feed.xmlUrl,
 			changed = changed,
-			show_asterisk = options.show_asterisk or true,
+			star_updated = options.star_updated or true,
 		})
 		open_entries_split(parsed_feed)
 	end
@@ -153,14 +210,18 @@ function M.fetch_feed()
 end
 
 function M.fetch_all_feeds()
+	notify("Fetching all feeds...", vim.log.levels.INFO)
 	for line in io.lines(feeds_file) do
 		fetch_and_update(line)
 	end
+	notify("All feeds fetched!", vim.log.levels.INFO)
 end
 
 function M.fetch_feeds_by_category()
 	local eval = vim.api.nvim_eval
 	local exec = vim.api.nvim_exec
+
+	notify("Fetching feeds in category...", vim.log.levels.INFO)
 
 	local category = eval(exec(
 		[[
@@ -173,17 +234,23 @@ function M.fetch_feeds_by_category()
 	for i = 1, #category do
 		fetch_and_update(category[i])
 	end
+
+	notify("Category feeds fetched!", vim.log.levels.INFO)
 end
 
 function M.fetch_selected_feeds()
 	local eval = vim.api.nvim_eval
 	local exec = vim.api.nvim_exec
 
+	notify("Fetching selected feeds...", vim.log.levels.INFO)
+
 	local selected = eval(exec([[echo getline("'<", "'>")]], true))
 
 	for i = 1, #selected do
 		fetch_and_update(selected[i])
 	end
+
+	notify("Selected feeds fetched!", vim.log.levels.INFO)
 end
 
 function M.import_opml(opml_file)
@@ -219,6 +286,52 @@ function M.import_opml(opml_file)
 	nvim_rss:write(table.concat(feeds, "\n"))
 	nvim_rss:flush()
 	nvim_rss:close()
+
+	notify("OPML import completed!", vim.log.levels.INFO)
+end
+
+function M.export_opml(opml_file)
+	notify("Exporting to " .. opml_file .. "...", vim.log.levels.INFO)
+
+	local feeds = {}
+	for line in io.lines(feeds_file) do
+		local url = utils.get_url(line)
+		if url then
+			local title = line:match(url .. "%s+(.+)") or url
+			table.insert(feeds, {url = url, title = title})
+		end
+	end
+
+	local outfile, err = io.open(opml_file, "w")
+	if err then
+		notify(tostring(err), vim.log.levels.ERROR)
+		return
+	end
+
+	if outfile == nil then
+		notify("Can't create file " .. opml_file, vim.log.levels.ERROR)
+		return
+	end
+
+	outfile:write('<?xml version="1.0" encoding="UTF-8"?>\n')
+	outfile:write('<opml version="2.0">\n')
+	outfile:write('  <head>\n')
+	outfile:write('    <title>RSS Feeds</title>\n')
+	outfile:write('  </head>\n')
+	outfile:write('  <body>\n')
+
+	for _, feed in ipairs(feeds) do
+		local escaped_title = feed.title:gsub('"', '&quot;'):gsub('<', '&lt;'):gsub('>', '&gt;'):gsub('&', '&amp;')
+		outfile:write(string.format('    <outline type="rss" text="%s" title="%s" xmlUrl="%s"/>\n',
+			escaped_title, escaped_title, feed.url))
+	end
+
+	outfile:write('  </body>\n')
+	outfile:write('</opml>\n')
+	outfile:flush()
+	outfile:close()
+
+	notify("OPML export completed!", vim.log.levels.INFO)
 end
 
 function M.view_feed()
@@ -244,6 +357,15 @@ function M.view_feed()
 	end
 
 	parsed_feed.xmlUrl = url
+
+	-- Mark feed as viewed (remove star)
+	feed_changed[url] = false
+	buffer.update_feed_line({
+		xmlUrl = url,
+		changed = false,
+		star_updated = options.star_updated or true,
+	})
+
 	open_entries_split(parsed_feed)
 end
 
@@ -260,7 +382,7 @@ function M.clean_feed()
 end
 
 -- Clear all cached feeds
-function M.reset_db()
+function M.clean_all_feeds()
 	cache.reset_cache()
 	feed_changed = {}
 	notify("Cleared all cached feeds", vim.log.levels.INFO)
@@ -270,13 +392,17 @@ function M.setup(user_options)
 	user_options = user_options or {}
 	options.feeds_dir = user_options.feeds_dir or "~"
 	options.verbose = user_options.verbose or false
-	options.show_asterisk = user_options.show_asterisk ~= false -- Default: true
-	options.log_level = user_options.log_level or "error" -- "error" or "debug"
+	options.star_updated = user_options.star_updated ~= false
+	options.log_level = user_options.log_level or "info"
+	options.fetch_timeout = user_options.fetch_timeout or 30
 
 	feeds_file = vim.fn.expand(options.feeds_dir) .. "/nvim.rss"
 
 	-- Initialize cache
 	cache.create(vim.fn.expand(options.feeds_dir))
+
+	-- Automatic cleanup of old cached feeds (30 days)
+	cache.clean_old_feeds(30)
 end
 
 return M

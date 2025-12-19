@@ -28,13 +28,10 @@ jobs:
         uses: leafo/gh-actions-luarocks@v6
 
       - name: Install dependencies
-        run: |
-          luarocks install busted
-          luarocks install luacov
-          luarocks install luaexpat
+        run: make install-deps
 
       - name: Run tests
-        run: busted --verbose --pattern=_spec%.lua$ tests/unit
+        run: make test
 
       - name: Generate coverage report
         if: matrix.lua-version == '5.1'
@@ -68,5 +65,5 @@ jobs:
       - name: Install luacheck
         run: luarocks install luacheck
 
-      - name: Run luacheck
-        run: luacheck lua/ tests/ --std max+busted
+      - name: Run lint
+        run: make lint

@@ -2,7 +2,7 @@ local slaxdom = require("nvim-rss.vendor.slaxdom")
 local XMLElement = require("nvim-rss.modules.feedparser.XMLElement")
 local dateparser = require("nvim-rss.modules.feedparser.dateparser")
 local URL = require("nvim-rss.modules.feedparser.url")
-local tinsert, tremove, tconcat = table.insert, table.remove, table.concat
+local tinsert, tconcat = table.insert, table.concat
 local pairs, ipairs = pairs, ipairs
 
 --- feedparser, similar to the Universal Feed Parser for python, but a good deal weaker.
@@ -26,9 +26,9 @@ end
 local function parse_entries(entries_el, format_str, base)
 	local entries = {}
 	for i, entry_el in ipairs(entries_el) do
-		local entry = { enclosures = {}, links = {}, contributors = {} }
+	local entry = { enclosures = {}, links = {}, contributors = {} }
 		local entry_base = rebase(entry_el, base)
-		for i, el in ipairs(entry_el:getChildren("*")) do
+		for _, el in ipairs(entry_el:getChildren("*")) do
 			local tag = el:getTag()
 			local el_base = rebase(el, entry_base)
 			-- title
@@ -41,7 +41,7 @@ local function parse_entries(entries_el, format_str, base)
 				tinsert(entry.links, { href = entry.link })
 			elseif (format_str == "atom" and tag == "link") or (format_str == "rss" and tag == "atom:link") then
 				local link = {}
-				for i, attr in ipairs({ "rel", "type", "href", "title" }) do
+				for _, attr in ipairs({ "rel", "type", "href", "title" }) do
 					link[attr] = (attr == "href") and resolve(el:getAttr(attr), el_base) or el:getAttr(attr) -- uri
 				end
 				tinsert(entry.links, link)
@@ -120,10 +120,9 @@ local function parse_entries(entries_el, format_str, base)
 				if author_url and author_url ~= "" then
 					entry.author_detail.href = resolve(author_url, rebase(el:getChild("url"), el_base))
 				end
-			elseif tag == "category" or tag == "dc:subject" then
-			-- todo
-			elseif tag == "source" then
-				-- todo
+			-- todo: implement category and source parsing
+			-- elseif tag == "category" or tag == "dc:subject" then
+			-- elseif tag == "source" then
 			end
 		end
 
@@ -133,7 +132,7 @@ local function parse_entries(entries_el, format_str, base)
 		end
 
 		-- wrap up entry.link
-		for i, link in pairs(entry.links) do
+		for _, link in pairs(entry.links) do
 			if link.rel == "alternate" or not link.rel or link.rel == "" then
 				entry.link = link.href -- already resolved.
 				break
@@ -184,7 +183,7 @@ local function parse_atom(root, base_uri)
 		-- link stuff
 		elseif tag == "link" then
 			local link = {}
-			for i, attr in ipairs({ "rel", "type", "href", "title" }) do
+			for _, attr in ipairs({ "rel", "type", "href", "title" }) do
 				link[attr] = (attr == "href") and resolve(el:getAttr(attr), el_base) or el:getAttr(attr)
 			end
 			tinsert(feed.links, link)
@@ -360,11 +359,35 @@ end
 --		the format of the returned table is much like that on http://feedparser.org, with the major difference that
 --		dates are parsed into unixtime. Most other fields are very much the same.
 function feedparser.parse(xml_string, base_url)
+	-- Strip UTF-8 BOM if present
+	if xml_string:sub(1, 3) == "\xEF\xBB\xBF" then
+		xml_string = xml_string:sub(4)
+	end
+
+	-- Strip leading/trailing whitespace
+	xml_string = xml_string:match("^%s*(.-)%s*$")
+
+	-- Check for empty response
+	if not xml_string or xml_string == "" then
+		return nil, "received empty response (server returned no content)"
+	end
+
+	-- Check if response is HTML instead of XML/RSS
+	local first_100 = xml_string:sub(1, 100):lower()
+	if first_100:match("<!doctype%s+html") or first_100:match("^%s*<html") then
+		return nil, "received HTML instead of RSS/Atom feed (server may have returned an error page)"
+	end
+
 	local ok, doc = pcall(function()
 		return slaxdom:dom(xml_string)
 	end)
 	if not ok then
-		return nil, "couldn't parse xml. slaxdom says: " .. tostring(doc)
+		local err_msg = tostring(doc)
+		-- Detect malformed HTML content errors
+		if err_msg:match("close element notification") or err_msg:match("inside a.*element") then
+			return nil, "feed contains malformed HTML content (improperly nested/closed tags). This is a feed quality issue - the publisher needs to properly escape HTML content."
+		end
+		return nil, "couldn't parse xml. slaxdom says: " .. err_msg
 	end
 	if not doc or not doc.root then
 		return nil, "couldn't parse xml: no root element found"

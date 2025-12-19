@@ -140,6 +140,15 @@ describe("feedparser module", function()
 
 			assert.is_nil(result)
 			assert.is_not_nil(err)
+			assert.matches("empty response", err)
+		end)
+
+		it("should handle whitespace-only response", function()
+			local result, err = feedparser.parse("   \n\n\t  \n  ")
+
+			assert.is_nil(result)
+			assert.is_not_nil(err)
+			assert.matches("empty response", err)
 		end)
 
 		it("should handle non-feed XML", function()
@@ -149,6 +158,40 @@ describe("feedparser module", function()
 			assert.is_nil(result)
 			assert.is_not_nil(err)
 			assert.matches("unknown feed format", err)
+		end)
+
+		it("should handle UTF-8 BOM", function()
+			local xml_with_bom = '\xEF\xBB\xBF<?xml version="1.0"?><rss version="2.0"><channel><title>Test</title><link>http://example.com</link></channel></rss>'
+			local result, err = feedparser.parse(xml_with_bom)
+
+			assert.is_not_nil(result, "Should parse XML with BOM: " .. tostring(err))
+			assert.equals("Test", result.feed.title)
+		end)
+
+		it("should handle leading/trailing whitespace", function()
+			local xml_with_whitespace = '\n\n  <?xml version="1.0"?><rss version="2.0"><channel><title>Test</title><link>http://example.com</link></channel></rss>  \n\n'
+			local result, err = feedparser.parse(xml_with_whitespace)
+
+			assert.is_not_nil(result, "Should parse XML with whitespace: " .. tostring(err))
+			assert.equals("Test", result.feed.title)
+		end)
+
+		it("should detect HTML response", function()
+			local html_response = '<!DOCTYPE html>\n<html><head><title>Error</title></head><body>404 Not Found</body></html>'
+			local result, err = feedparser.parse(html_response)
+
+			assert.is_nil(result)
+			assert.is_not_nil(err)
+			assert.matches("received HTML instead of RSS/Atom feed", err)
+		end)
+
+		it("should detect HTML response with different case", function()
+			local html_response = '<HTML><HEAD><TITLE>Error</TITLE></HEAD><BODY>Error</BODY></HTML>'
+			local result, err = feedparser.parse(html_response)
+
+			assert.is_nil(result)
+			assert.is_not_nil(err)
+			assert.matches("received HTML instead of RSS/Atom feed", err)
 		end)
 	end)
 

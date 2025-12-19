@@ -1,5 +1,5 @@
 --[[
-Copyright 2004-2007 Diego Nehab. 
+Copyright 2004-2007 Diego Nehab.
 Permission is hereby granted, free of charge, to any person
 obtaining a copy of this software and associated documentation
 files (the "Software"), to deal in the Software without
@@ -256,6 +256,7 @@ end
 
 -- Builds a absolute URL from a base and a relative URL according to RFC 2396
 function Url.absolute(base_url, relative_url)
+	local base_parsed
 	if base.type(base_url) == "table" then
 		base_parsed = base_url
 		base_url = Url.build(base_parsed)

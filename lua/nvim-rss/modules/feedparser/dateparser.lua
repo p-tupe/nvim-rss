@@ -1,8 +1,7 @@
 local difftime, time, date = os.difftime, os.time, os.date
-local format = string.format
-local tremove, tinsert = table.remove, table.insert
-local pcall, pairs, ipairs, tostring, tonumber, type, setmetatable =
-	pcall, pairs, ipairs, tostring, tonumber, type, setmetatable
+local tinsert = table.insert
+local pcall, ipairs, tostring, tonumber, type, setmetatable =
+	pcall, ipairs, tostring, tonumber, type, setmetatable
 
 local dateparser = {}
 
@@ -61,7 +60,7 @@ end
 --@param date_format optional date format name, if known
 --@return unix timestamp if str can be parsed; nil, error otherwise.
 function dateparser.parse(str, date_format)
-	local success, res, err
+	local success, res
 	if date_format then
 		if not formats[date_format] then
 			return "unknown date format: " .. tostring(date_format)
@@ -79,7 +78,7 @@ function dateparser.parse(str, date_format)
 end
 
 dateparser.register_format("W3CDTF", function(rest)
-	local year, day_of_year, month, day, week
+	local year, day_of_year, month, day
 	local hour, minute, second, second_fraction, offset_hours
 
 	local alt_rest
@@ -108,9 +107,10 @@ dateparser.register_format("W3CDTF", function(rest)
 			rest = ""
 			offset_hours = 0
 		else
-			local sign, offset_h, offset_m
+			local sign, offset_h
 			sign, offset_h, rest = rest:match("^([+-])(%d%d)%:?(.*)$")
-			local offset_m, alt_rest = rest:match("^(%d%d)(.*)$")
+			local offset_m
+			offset_m, alt_rest = rest:match("^(%d%d)(.*)$")
 			if offset_m then
 				rest = alt_rest
 			end
@@ -185,8 +185,8 @@ do
 		{ Jan = 1, Feb = 2, Mar = 3, Apr = 4, May = 5, Jun = 6, Jul = 7, Aug = 8, Sep = 9, Oct = 10, Nov = 11, Dec = 12 }
 
 	dateparser.register_format("RFC2822", function(rest)
-		local year, month, day, day_of_year, week_of_year, weekday
-		local hour, minute, second, second_fraction, offset_hours
+		local year, month, day, weekday
+		local hour, minute, second, offset_hours
 
 		local alt_rest
 

@@ -29,7 +29,7 @@ end
 -- @return boolean true if XML content changed (show *), false otherwise
 function M.save_feed(url, xml_content)
 	local filepath = url_to_filename(url)
-	local changed = false
+	local changed
 
 	-- Check if XML differs from cached version
 	if vim.fn.filereadable(filepath) == 1 then
@@ -100,6 +100,30 @@ function M.list_cached_feeds()
 	end
 
 	return urls
+end
+
+-- Clean old cached feeds
+-- @param max_age_days Maximum age in days (default: 30)
+-- @return number Number of files deleted
+function M.clean_old_feeds(max_age_days)
+	max_age_days = max_age_days or 30
+	local max_age_seconds = max_age_days * 24 * 60 * 60
+	local current_time = os.time()
+	local deleted_count = 0
+
+	local files = vim.fn.glob(cache_dir .. "/*.xml", false, true)
+	for _, file in ipairs(files) do
+		local mtime = vim.fn.getftime(file)
+		if mtime ~= -1 then
+			local age = current_time - mtime
+			if age > max_age_seconds then
+				vim.fn.delete(file)
+				deleted_count = deleted_count + 1
+			end
+		end
+	end
+
+	return deleted_count
 end
 
 return M
