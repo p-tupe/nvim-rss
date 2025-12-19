@@ -26,7 +26,7 @@ end
 local function parse_entries(entries_el, format_str, base)
 	local entries = {}
 	for i, entry_el in ipairs(entries_el) do
-	local entry = { enclosures = {}, links = {}, contributors = {} }
+		local entry = { enclosures = {}, links = {}, contributors = {} }
 		local entry_base = rebase(entry_el, base)
 		for _, el in ipairs(entry_el:getChildren("*")) do
 			local tag = el:getTag()
@@ -63,11 +63,8 @@ local function parse_entries(entries_el, format_str, base)
 			elseif
 				(format_str == "atom" and tag == "summary")
 				or (
-					format_str == "rss" and (
-						tag == "description"
-						or tag == "dc:description"
-						or tag == "rdf:description"
-					)
+					format_str == "rss"
+					and (tag == "description" or tag == "dc:description" or tag == "rdf:description")
 				)
 			then
 				entry.summary = el:getText()
@@ -120,9 +117,9 @@ local function parse_entries(entries_el, format_str, base)
 				if author_url and author_url ~= "" then
 					entry.author_detail.href = resolve(author_url, rebase(el:getChild("url"), el_base))
 				end
-			-- todo: implement category and source parsing
-			-- elseif tag == "category" or tag == "dc:subject" then
-			-- elseif tag == "source" then
+				-- todo: implement category and source parsing
+				-- elseif tag == "category" or tag == "dc:subject" then
+				-- elseif tag == "source" then
 			end
 		end
 
@@ -359,9 +356,8 @@ end
 --		the format of the returned table is much like that on http://feedparser.org, with the major difference that
 --		dates are parsed into unixtime. Most other fields are very much the same.
 function feedparser.parse(xml_string, base_url)
-	-- Strip UTF-8 BOM if present (use string.char for Lua 5.1 compatibility)
-	local bom = string.char(0xEF, 0xBB, 0xBF)
-	if xml_string:sub(1, 3) == bom then
+	-- Strip UTF-8 BOM if present
+	if xml_string:sub(1, 3) == "\xEF\xBB\xBF" then
 		xml_string = xml_string:sub(4)
 	end
 
@@ -386,7 +382,8 @@ function feedparser.parse(xml_string, base_url)
 		local err_msg = tostring(doc)
 		-- Detect malformed HTML content errors
 		if err_msg:match("close element notification") or err_msg:match("inside a.*element") then
-			return nil, "feed contains malformed HTML content (improperly nested/closed tags). This is a feed quality issue - the publisher needs to properly escape HTML content."
+			return nil,
+				"feed contains malformed HTML content (improperly nested/closed tags). This is a feed quality issue - the publisher needs to properly escape HTML content."
 		end
 		return nil, "couldn't parse xml. slaxdom says: " .. err_msg
 	end
