@@ -359,8 +359,9 @@ end
 --		the format of the returned table is much like that on http://feedparser.org, with the major difference that
 --		dates are parsed into unixtime. Most other fields are very much the same.
 function feedparser.parse(xml_string, base_url)
-	-- Strip UTF-8 BOM if present
-	if xml_string:sub(1, 3) == "\xEF\xBB\xBF" then
+	-- Strip UTF-8 BOM if present (use string.char for Lua 5.1 compatibility)
+	local bom = string.char(0xEF, 0xBB, 0xBF)
+	if xml_string:sub(1, 3) == bom then
 		xml_string = xml_string:sub(4)
 	end
 
