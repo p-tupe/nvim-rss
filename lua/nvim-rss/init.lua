@@ -1,4 +1,4 @@
-local db = require("nvim-rss.modules.db")
+local cache = require("nvim-rss.modules.cache")
 local utils = require("nvim-rss.modules.utils")
 local buffer = require("nvim-rss.modules.buffer")
 local feedparser = require("nvim-rss.modules.feedparser")
@@ -6,23 +6,48 @@ local feedparser = require("nvim-rss.modules.feedparser")
 local M = {}
 local options = {}
 local feeds_file
-local feeds_db
+local feed_changed = {} -- Track which feeds have changed
+
+-- Helper function for notifications with verbosity control
+local function notify(msg, level)
+	level = level or vim.log.levels.INFO
+
+	if level >= vim.log.levels.WARN then
+		vim.notify(msg, level)
+	elseif options.log_level == "debug" then
+		vim.notify(msg, level)
+	end
+end
+
+-- Map curl exit codes to user-friendly messages
+local function get_curl_error_message(exit_code)
+	local curl_errors = {
+		[1] = "Unsupported protocol",
+		[3] = "Malformed URL",
+		[5] = "Couldn't resolve proxy",
+		[6] = "Couldn't resolve host",
+		[7] = "Failed to connect",
+		[28] = "Operation timeout",
+		[35] = "SSL connection error",
+		[52] = "Empty response from server",
+		[56] = "Failure receiving network data",
+	}
+	return curl_errors[exit_code] or ("Unknown error (code " .. exit_code .. ")")
+end
 
 local function open_entries_split(parsed_feed)
-	local feed_info, entries = db.read_feed(parsed_feed.xmlUrl)
 	buffer.create_feed_buffer()
-	buffer.insert_feed_info(feed_info)
-	buffer.insert_entries(entries)
+	buffer.insert_feed_info(parsed_feed.feed)
+	buffer.insert_entries(parsed_feed.entries)
 end
 
 local function update_line(parsed_feed)
-	local latest, total, update_date = db.read_entry_stats(parsed_feed.xmlUrl)
+	-- Show * if feed has changed
+	local changed = feed_changed[parsed_feed.xmlUrl] or false
 	buffer.update_feed_line({
 		xmlUrl = parsed_feed.xmlUrl,
-		latest = latest,
-		total = total,
-		update_date = update_date,
-		date_format = options.date_format,
+		changed = changed,
+		show_asterisk = options.show_asterisk or true,
 	})
 end
 
@@ -32,7 +57,7 @@ local function web_request(url, callback)
 	local stdout = vim.loop.new_pipe(false)
 	local stderr = vim.loop.new_pipe(false)
 
-	print("Fetching feed " .. url .. "... ")
+	notify("Fetching feed " .. url .. "...", vim.log.levels.INFO)
 
 	handle = vim.loop.spawn(
 		"curl",
@@ -54,17 +79,24 @@ local function web_request(url, callback)
 			end
 
 			if err ~= 0 then
-				error("Web request error", err .. msg)
+				local error_msg = "Failed to fetch " .. url .. ": " .. get_curl_error_message(err)
+				notify(error_msg, vim.log.levels.ERROR)
+				return
 			end
 
-			local parsed_feed = feedparser.parse(raw_feed)
+			-- Save raw XML to cache and detect changes
+			local changed = cache.save_feed(url, raw_feed)
+			feed_changed[url] = changed
+
+			-- Parse the feed for display
+			local parsed_feed, parse_err = feedparser.parse(raw_feed)
 			if not parsed_feed then
-				error("Feed parsing error", raw_feed)
+				notify("Failed to parse feed from " .. url .. ": " .. tostring(parse_err), vim.log.levels.ERROR)
+				return
 			end
 
 			raw_feed = ""
 			parsed_feed.xmlUrl = url
-			db.update_feed(parsed_feed)
 
 			callback(parsed_feed)
 		end)
@@ -72,7 +104,8 @@ local function web_request(url, callback)
 
 	stdout:read_start(vim.schedule_wrap(function(err, chunk)
 		if err then
-			error(err, chunk)
+			notify("Error reading feed data: " .. tostring(err), vim.log.levels.ERROR)
+			return
 		end
 		if chunk then
 			raw_feed = raw_feed .. chunk
@@ -81,7 +114,7 @@ local function web_request(url, callback)
 
 	stderr:read_start(vim.schedule_wrap(function(err, chunk)
 		if err then
-			error(err, chunk)
+			notify("Curl error: " .. tostring(err), vim.log.levels.ERROR)
 		end
 	end))
 end
@@ -101,17 +134,17 @@ function M.fetch_feed()
 	local xmlUrl = utils.get_url(vim.api.nvim_get_current_line())
 
 	if not xmlUrl then
-		error("Invalid url")
+		notify("Invalid URL", vim.log.levels.ERROR)
+		return
 	end
 
 	local function callback(parsed_feed)
-		local latest, total, update_date = db.read_entry_stats(parsed_feed.xmlUrl)
+		-- Show * if feed changed
+		local changed = feed_changed[parsed_feed.xmlUrl] or false
 		buffer.update_feed_line({
 			xmlUrl = parsed_feed.xmlUrl,
-			latest = latest,
-			total = total,
-			update_date = update_date,
-			date_format = options.date_format,
+			changed = changed,
+			show_asterisk = options.show_asterisk or true,
 		})
 		open_entries_split(parsed_feed)
 	end
@@ -154,7 +187,7 @@ function M.fetch_selected_feeds()
 end
 
 function M.import_opml(opml_file)
-	print("Importing ", opml_file, "...")
+	notify("Importing " .. opml_file .. "...", vim.log.levels.INFO)
 
 	local feeds = {}
 	for line in io.lines(opml_file) do
@@ -173,11 +206,12 @@ function M.import_opml(opml_file)
 	local nvim_rss, err = io.open(feeds_file, "a+")
 
 	if err then
-		error(err)
+		notify(tostring(err), vim.log.levels.ERROR)
+		return
 	end
 
 	if nvim_rss == nil then
-		error("Can't find file " .. feeds_file)
+		notify("Can't find file " .. feeds_file, vim.log.levels.ERROR)
 		return
 	end
 
@@ -191,40 +225,58 @@ function M.view_feed()
 	local url = utils.get_url(vim.api.nvim_get_current_line())
 
 	if not url then
-		error("Invalid url")
+		notify("Invalid URL", vim.log.levels.ERROR)
+		return
 	end
 
-	open_entries_split({
-		xmlUrl = url,
-	})
+	-- Read cached XML
+	local cached_xml = cache.read_feed(url)
+	if not cached_xml then
+		notify("No cached data for this feed. Fetch it first with fetch_feed()", vim.log.levels.WARN)
+		return
+	end
+
+	-- Parse the cached XML
+	local parsed_feed = feedparser.parse(cached_xml)
+	if not parsed_feed then
+		notify("Failed to parse cached feed", vim.log.levels.ERROR)
+		return
+	end
+
+	parsed_feed.xmlUrl = url
+	open_entries_split(parsed_feed)
 end
 
--- Removes all entries associated with a feed
+-- Removes cached data for a feed
 function M.clean_feed()
 	local xmlUrl = utils.get_url(vim.api.nvim_get_current_line())
 	if not xmlUrl then
-		error("Invalid url")
+		notify("Invalid URL", vim.log.levels.ERROR)
+		return
 	end
-	local removed = db.remove_entries(xmlUrl)
-	if removed then
-		buffer.update_feed_line(xmlUrl)
-	end
+	cache.clean_feed(xmlUrl)
+	feed_changed[xmlUrl] = nil
+	notify("Cleared cache for feed: " .. xmlUrl, vim.log.levels.INFO)
 end
 
--- Trunace all tables
+-- Clear all cached feeds
 function M.reset_db()
-	db.truncate_tables()
+	cache.reset_cache()
+	feed_changed = {}
+	notify("Cleared all cached feeds", vim.log.levels.INFO)
 end
 
 function M.setup(user_options)
+	user_options = user_options or {}
 	options.feeds_dir = user_options.feeds_dir or "~"
 	options.verbose = user_options.verbose or false
-	options.date_format = user_options.date_format or "%x %r"
+	options.show_asterisk = user_options.show_asterisk ~= false -- Default: true
+	options.log_level = user_options.log_level or "error" -- "error" or "debug"
 
-	feeds_file = options.feeds_dir .. "/nvim.rss"
-	feeds_db = options.feeds_dir .. "/nvim.rss.db"
+	feeds_file = vim.fn.expand(options.feeds_dir) .. "/nvim.rss"
 
-	db.create(feeds_db)
+	-- Initialize cache
+	cache.create(vim.fn.expand(options.feeds_dir))
 end
 
 return M

@@ -1,0 +1,72 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        lua-version: ["5.1", "luajit"]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Lua ${{ matrix.lua-version }}
+        uses: leafo/gh-actions-lua@v12
+        with:
+          luaVersion: ${{ matrix.lua-version }}
+
+      - name: Setup LuaRocks
+        uses: leafo/gh-actions-luarocks@v6
+
+      - name: Install dependencies
+        run: |
+          luarocks install busted
+          luarocks install luacov
+          luarocks install luaexpat
+
+      - name: Run tests
+        run: busted --verbose --pattern=_spec%.lua$ tests/unit
+
+      - name: Generate coverage report
+        if: matrix.lua-version == '5.1'
+        run: |
+          busted --coverage --pattern=_spec%.lua$
+          luacov
+
+      - name: Upload coverage report
+        if: matrix.lua-version == '5.1'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: luacov.report.out
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Lua
+        uses: leafo/gh-actions-lua@v12
+        with:
+          luaVersion: "5.1"
+
+      - name: Setup LuaRocks
+        uses: leafo/gh-actions-luarocks@v6
+
+      - name: Install luacheck
+        run: luarocks install luacheck
+
+      - name: Run luacheck
+        run: luacheck lua/ tests/ --std max+busted

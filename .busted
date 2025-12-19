@@ -1,0 +1,18 @@
+return {
+  _all = {
+    coverage = false,
+    lpath = "lua/?.lua;lua/?/init.lua",
+    cpath = "",
+    pattern = "_spec%.lua$",
+  },
+  default = {
+    verbose = true,
+    ROOT = {"tests/"},
+  },
+  unit = {
+    ROOT = {"tests/unit/"},
+  },
+  e2e = {
+    ROOT = {"tests/e2e/"},
+  },
+}

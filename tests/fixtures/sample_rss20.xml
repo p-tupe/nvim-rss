@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Sample RSS 2.0 Feed</title>
+    <link>http://example.com</link>
+    <description>A sample RSS 2.0 feed for testing</description>
+    <language>en-us</language>
+    <pubDate>Mon, 01 Jan 2024 00:00:00 GMT</pubDate>
+
+    <item>
+      <title>First Article</title>
+      <link>http://example.com/article1</link>
+      <description>This is the first article in the feed</description>
+      <pubDate>Mon, 01 Jan 2024 10:00:00 GMT</pubDate>
+      <guid>http://example.com/article1</guid>
+    </item>
+
+    <item>
+      <title>Second Article</title>
+      <link>http://example.com/article2</link>
+      <description>This is the second article in the feed</description>
+      <pubDate>Mon, 01 Jan 2024 12:00:00 GMT</pubDate>
+      <guid>http://example.com/article2</guid>
+    </item>
+
+    <item>
+      <title>Third Article</title>
+      <link>http://example.com/article3</link>
+      <description>This is the third article in the feed</description>
+      <pubDate>Mon, 01 Jan 2024 14:00:00 GMT</pubDate>
+      <guid>http://example.com/article3</guid>
+    </item>
+  </channel>
+</rss>

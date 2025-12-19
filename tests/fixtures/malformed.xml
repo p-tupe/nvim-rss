@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Malformed Feed</title>
+    <link>http://example.com</link>
+    <item>
+      <title>Unclosed tag
+      <link>http://example.com/bad</link>
+    </item>
+  <!-- Missing closing tags -->
