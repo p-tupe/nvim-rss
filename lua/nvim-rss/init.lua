@@ -42,9 +42,9 @@ local function get_curl_error_message(exit_code)
 	return curl_errors[exit_code] or ("Unknown error (code " .. exit_code .. ")")
 end
 
-local function open_entries_split(parsed_feed)
+local function open_entries_split(parsed_feed, metadata)
 	buffer.create_feed_buffer()
-	buffer.insert_feed_info(parsed_feed.feed)
+	buffer.insert_feed_info(parsed_feed.feed, metadata)
 	buffer.insert_entries(parsed_feed.entries)
 end
 
@@ -203,7 +203,14 @@ function M.fetch_feed()
 			changed = changed,
 			star_updated = options.star_updated or true,
 		})
-		open_entries_split(parsed_feed)
+
+		-- Gather metadata
+		local metadata = {
+			item_count = #parsed_feed.entries,
+			last_checked = utils.format_relative_time(cache.get_last_fetch_time(parsed_feed.xmlUrl)),
+		}
+
+		open_entries_split(parsed_feed, metadata)
 	end
 
 	web_request(xmlUrl, callback)
@@ -366,7 +373,13 @@ function M.view_feed()
 		star_updated = options.star_updated or true,
 	})
 
-	open_entries_split(parsed_feed)
+	-- Gather metadata
+	local metadata = {
+		item_count = #parsed_feed.entries,
+		last_checked = utils.format_relative_time(cache.get_last_fetch_time(url)),
+	}
+
+	open_entries_split(parsed_feed, metadata)
 end
 
 -- Removes cached data for a feed

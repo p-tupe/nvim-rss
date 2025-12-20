@@ -1,6 +1,8 @@
 local M = {}
 
-local sanitize = require("nvim-rss.modules.utils").sanitize
+local utils = require("nvim-rss.modules.utils")
+local sanitize = utils.sanitize
+local format_relative_time = utils.format_relative_time
 
 function M.insert_entries(entries)
 	local append = vim.fn.append
@@ -10,6 +12,12 @@ function M.insert_entries(entries)
 		append(line("$"), "")
 		append(line("$"), "")
 		append(line("$"), entry.title)
+
+		-- Show publish date if available
+		if entry.updated_parsed then
+			append(line("$"), "Added " .. format_relative_time(entry.updated_parsed))
+		end
+
 		append(line("$"), "------------------------")
 		append(line("$"), entry.link)
 		append(line("$"), "")
@@ -45,8 +53,9 @@ function M.update_feed_line(opt)
 	end
 end
 
-function M.insert_feed_info(feed_info)
-	-- feed_info is now the direct feed object from feedparser
+function M.insert_feed_info(feed_info, metadata)
+	metadata = metadata or {}
+
 	vim.cmd("normal o " .. (feed_info.title or "Untitled Feed"))
 	vim.cmd("center")
 	vim.cmd("normal o")
@@ -59,8 +68,25 @@ function M.insert_feed_info(feed_info)
 		vim.cmd("normal o " .. feed_info.subtitle)
 		vim.cmd("center")
 	end
-	vim.cmd("normal o")
 
+	-- Show metadata if available
+	if metadata.item_count or metadata.last_checked then
+		vim.cmd("normal o")
+		local meta_line = ""
+		if metadata.item_count then
+			meta_line = metadata.item_count .. " item" .. (metadata.item_count ~= 1 and "s" or "")
+		end
+		if metadata.last_checked then
+			if meta_line ~= "" then
+				meta_line = meta_line .. " • "
+			end
+			meta_line = meta_line .. "Synced " .. metadata.last_checked
+		end
+		vim.cmd("normal o " .. meta_line)
+		vim.cmd("center")
+	end
+
+	vim.cmd("normal o")
 	vim.cmd("normal o ========================================")
 	vim.cmd("center")
 end

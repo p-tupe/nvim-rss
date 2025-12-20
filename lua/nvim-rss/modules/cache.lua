@@ -87,6 +87,15 @@ function M.has_feed(url)
 	return vim.fn.filereadable(filepath) == 1
 end
 
+-- Get last fetch time for a feed
+-- @param url Feed URL
+-- @return number|nil Unix timestamp of last fetch, or nil if not cached
+function M.get_last_fetch_time(url)
+	local filepath = url_to_filename(url)
+	local mtime = vim.fn.getftime(filepath)
+	return mtime ~= -1 and mtime or nil
+end
+
 -- Delete cached feed
 -- @param url Feed URL
 function M.clean_feed(url)
