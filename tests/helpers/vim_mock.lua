@@ -47,18 +47,30 @@ _G.vim = {
 			M.mock_files = M.mock_files or {}
 			return M.mock_files[path] and 1 or 0
 		end,
-		readfile = function(path)
+		readfile = function(path, mode)
 			-- Read from mock filesystem
 			M.mock_files = M.mock_files or {}
 			if M.mock_files[path] then
-				return vim.split(M.mock_files[path], "\n")
+				if mode == "b" then
+					-- Binary mode: return content as single element
+					return {M.mock_files[path]}
+				else
+					-- Text mode: return lines
+					return vim.split(M.mock_files[path], "\n")
+				end
 			end
 			return {}
 		end,
 		writefile = function(lines, path, flags)
 			-- Write to mock filesystem
 			M.mock_files = M.mock_files or {}
-			M.mock_files[path] = table.concat(lines, "\n")
+			if flags == "b" then
+				-- Binary mode: lines[1] is the entire content
+				M.mock_files[path] = lines[1] or ""
+			else
+				-- Text mode: join lines
+				M.mock_files[path] = table.concat(lines, "\n")
+			end
 			return 0
 		end,
 		glob = function(pattern, nosuf, list)

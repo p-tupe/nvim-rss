@@ -39,10 +39,10 @@ describe("cache module", function()
 			assert.is_false(changed)
 		end)
 
-		it("should detect change when XML differs", function()
+		it("should detect change when items differ", function()
 			local url = "https://example.com/feed.xml"
-			local xml1 = '<?xml version="1.0"?><rss><channel><title>Test</title></channel></rss>'
-			local xml2 = '<?xml version="1.0"?><rss><channel><title>Updated</title></channel></rss>'
+			local xml1 = '<?xml version="1.0"?><rss><channel><title>Test</title><item><title>Old</title></item></channel></rss>'
+			local xml2 = '<?xml version="1.0"?><rss><channel><title>Test</title><item><title>New</title></item></channel></rss>'
 
 			-- Save first version
 			cache.save_feed(url, xml1)
@@ -51,6 +51,20 @@ describe("cache module", function()
 			local changed = cache.save_feed(url, xml2)
 
 			assert.is_true(changed)
+		end)
+
+		it("should ignore metadata changes (only compare items)", function()
+			local url = "https://example.com/feed.xml"
+			local xml1 = '<?xml version="1.0"?><rss><channel><title>Test</title><lastBuildDate>2025-01-01</lastBuildDate><item><title>Article</title></item></channel></rss>'
+			local xml2 = '<?xml version="1.0"?><rss><channel><title>Updated</title><lastBuildDate>2025-12-19</lastBuildDate><item><title>Article</title></item></channel></rss>'
+
+			-- Save first version
+			cache.save_feed(url, xml1)
+
+			-- Save with different metadata but same items
+			local changed = cache.save_feed(url, xml2)
+
+			assert.is_false(changed)
 		end)
 
 		it("should handle multiple different feeds", function()
