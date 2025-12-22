@@ -5,28 +5,36 @@ local sanitize = utils.sanitize
 local format_relative_time = utils.format_relative_time
 
 function M.insert_entries(entries)
-	local append = vim.fn.append
-	local line = vim.fn.line
+	local lines = {}
 
 	for i, entry in ipairs(entries) do
-		append(line("$"), "")
-		append(line("$"), "")
-		append(line("$"), entry.title)
+		table.insert(lines, "")
+		table.insert(lines, "")
+		table.insert(lines, entry.title)
 
 		-- Show publish date if available
 		if entry.updated_parsed then
-			append(line("$"), "Added " .. format_relative_time(entry.updated_parsed))
+			table.insert(lines, "Added " .. format_relative_time(entry.updated_parsed))
 		end
 
-		append(line("$"), "------------------------")
-		append(line("$"), entry.link)
-		append(line("$"), "")
+		table.insert(lines, "------------------------")
+		table.insert(lines, entry.link)
+		table.insert(lines, "")
 		if entry.summary then
-			append(line("$"), sanitize(entry.summary))
+			local summary_lines = sanitize(entry.summary)
+			if summary_lines then
+				for _, summary_line in ipairs(summary_lines) do
+					table.insert(lines, summary_line)
+				end
+			end
 		end
 	end
 
-	vim.cmd("0")
+	-- Append all lines at once
+	vim.api.nvim_buf_set_lines(0, -1, -1, false, lines)
+
+	-- Go to first line
+	vim.api.nvim_win_set_cursor(0, {1, 0})
 end
 
 function M.update_feed_line(opt)
@@ -92,30 +100,37 @@ function M.insert_feed_info(feed_info, metadata)
 end
 
 function M.create_feed_buffer()
-	vim.cmd([[
+	-- Close window if __FEED__ is open
+	local win = vim.fn.bufwinnr("__FEED__")
+	if win ~= -1 then
+		vim.cmd(win .. "wincmd w")
+		vim.cmd("close")
+	end
 
-    " Close window if __FEED__ is open
-    let win = bufwinnr("__FEED__")
-    if win != -1
-      exe win . "wincmd w"
-      close
-    endif
+	-- Delete __FEED__ buffer if it exists
+	local buf = vim.fn.bufnr("__FEED__")
+	if buf ~= -1 then
+		vim.cmd("bwipeout! " .. buf)
+	end
 
-    " Delete __FEED__ buffer if it exists
-    let buf = bufnr("__FEED__")
-    if buf != -1
-      exe "bwipeout! " . buf
-    endif
+	-- Create fresh buffer in vsplit
+	vim.cmd("vsplit __FEED__")
 
-    " Always create fresh buffer
-    vsplit __FEED__
-    setlocal buftype=nofile
-    setlocal nobackup noswapfile nowritebackup
-    setlocal noautoindent nosmartindent
-    setlocal nonumber norelativenumber
-    setlocal filetype=markdown
+	-- Set buffer options
+	local bufnr = vim.fn.bufnr("__FEED__")
+	vim.bo[bufnr].buftype = "nofile"
+	vim.bo[bufnr].autoindent = false
+	vim.bo[bufnr].smartindent = false
+	vim.bo[bufnr].filetype = "markdown"
 
-  ]])
+	-- Set window-local options
+	vim.wo.number = false
+	vim.wo.relativenumber = false
+
+	-- Set buffer-local versions of global options
+	vim.opt_local.backup = false
+	vim.opt_local.swapfile = false
+	vim.opt_local.writebackup = false
 end
 
 return M

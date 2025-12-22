@@ -16,22 +16,16 @@ https://github.com/user-attachments/assets/7b9a5ec5-82af-4eed-8882-19be31d04f32
 
 ## Pre-requisites
 
-1. [neovim](https://neovim.io/)
+1. [neovim](https://neovim.io/) (0.10+)
 2. [curl](https://curl.se/) | Usually pre-installed on most systems
 
 ## Installation
 
-**Works on Linux, macOS, and Windows. No external dependencies required!**
-
 ```lua
--- In your package manager
+-- In your package manager init
 { "p-tupe/nvim-rss" }
-```
 
-## Setup
-
-```lua
--- Default values (all are optional)
+-- Then call setup; Default values (all are optional)
 require("nvim-rss").setup({
   feeds_dir = "~",       -- Directory for nvim.rss file
   star_updated = true,   -- Show * for updated feeds
@@ -39,7 +33,7 @@ require("nvim-rss").setup({
 })
 ```
 
-**Note:** Feed data is now cached in `~/.nvim-rss-cache/` (or `<feeds_dir>/.nvim-rss-cache/`) as raw XML files.
+**Note:** Feed data is cached in `<feeds_dir>/.nvim-rss-cache/` as raw XML files.
 
 ## Barebones
 

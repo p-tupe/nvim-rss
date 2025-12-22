@@ -97,49 +97,30 @@ local function web_request(url, callback)
 	-- Increment active fetches
 	active_fetches = active_fetches + 1
 
-	local raw_feed = ""
-	local stdin = vim.loop.new_pipe(false)
-	local stdout = vim.loop.new_pipe(false)
-	local stderr = vim.loop.new_pipe(false)
-
 	notify("Fetching feed " .. url .. "...", vim.log.levels.DEBUG)
 
-	local handle
-	handle = vim.loop.spawn(
+	vim.system({
 		"curl",
-		{
-			args = {
-				"-L",
-				"--max-time",
-				tostring(options.fetch_timeout),
-				"--user-agent",
-				"Mozilla/5.0 (X11; Linux x86_64; rv:60.0) Gecko/20100101 Firefox/90.0",
-				url,
-			},
-			stdio = { stdin, stdout, stderr },
-		},
-		vim.schedule_wrap(function(err, msg)
-			stdin:shutdown()
-			stdout:read_stop()
-			stderr:read_stop()
-
-			stdin:close()
-			stdout:close()
-			stderr:close()
-
-			if not handle:is_closing() then
-				handle:close()
-			end
-
+		"-s",
+		"-L",
+		"--max-time",
+		tostring(options.fetch_timeout),
+		"--user-agent",
+		"Mozilla/5.0 (X11; Linux x86_64; rv:60.0) Gecko/20100101 Firefox/90.0",
+		url,
+	}, { text = true }, function(obj)
+		vim.schedule(function()
 			-- Decrement active fetches and process queue
 			active_fetches = active_fetches - 1
 			vim.schedule(process_queue)
 
-			if err ~= 0 then
-				local error_msg = "Failed to fetch " .. url .. ": " .. get_curl_error_message(err)
+			if obj.code ~= 0 then
+				local error_msg = "Failed to fetch " .. url .. ": " .. get_curl_error_message(obj.code)
 				notify(error_msg, vim.log.levels.ERROR)
 				return
 			end
+
+			local raw_feed = obj.stdout or ""
 
 			-- Save raw XML to cache and detect changes
 			local changed = cache.save_feed(url, raw_feed)
@@ -152,28 +133,10 @@ local function web_request(url, callback)
 				return
 			end
 
-			raw_feed = ""
 			parsed_feed.xmlUrl = url
-
 			callback(parsed_feed)
 		end)
-	)
-
-	stdout:read_start(vim.schedule_wrap(function(err, chunk)
-		if err then
-			notify("Error reading feed data: " .. tostring(err), vim.log.levels.ERROR)
-			return
-		end
-		if chunk then
-			raw_feed = raw_feed .. chunk
-		end
-	end))
-
-	stderr:read_start(vim.schedule_wrap(function(err, chunk)
-		if err then
-			notify("Curl error: " .. tostring(err), vim.log.levels.ERROR)
-		end
-	end))
+	end)
 end
 
 local function fetch_and_update(line)
@@ -225,36 +188,37 @@ function M.fetch_all_feeds()
 end
 
 function M.fetch_feeds_by_category()
-	local eval = vim.api.nvim_eval
-	local exec = vim.api.nvim_exec
-
 	notify("Fetching feeds in category...", vim.log.levels.INFO)
 
-	local category = eval(exec(
-		[[
-    execute ':silent normal vip'
-    echo getline("'<", "'>")
-  ]],
-		true
-	))
+	-- Select current paragraph
+	vim.cmd("silent normal! vip")
 
-	for i = 1, #category do
-		fetch_and_update(category[i])
+	-- Get visual selection range
+	local start_line = vim.fn.line("'<") - 1
+	local end_line = vim.fn.line("'>")
+
+	-- Get lines in the paragraph
+	local lines = vim.api.nvim_buf_get_lines(0, start_line, end_line, false)
+
+	for _, line in ipairs(lines) do
+		fetch_and_update(line)
 	end
 
 	notify("Category feeds fetched!", vim.log.levels.INFO)
 end
 
 function M.fetch_selected_feeds()
-	local eval = vim.api.nvim_eval
-	local exec = vim.api.nvim_exec
-
 	notify("Fetching selected feeds...", vim.log.levels.INFO)
 
-	local selected = eval(exec([[echo getline("'<", "'>")]], true))
+	-- Get visual selection range
+	local start_line = vim.fn.line("'<") - 1
+	local end_line = vim.fn.line("'>")
 
-	for i = 1, #selected do
-		fetch_and_update(selected[i])
+	-- Get selected lines
+	local lines = vim.api.nvim_buf_get_lines(0, start_line, end_line, false)
+
+	for _, line in ipairs(lines) do
+		fetch_and_update(line)
 	end
 
 	notify("Selected feeds fetched!", vim.log.levels.INFO)
