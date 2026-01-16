@@ -50,9 +50,13 @@ function M.save_feed(url, xml_content)
 	local filepath = url_to_filename(url)
 	local changed
 
+	-- Ensure content is a string
+	xml_content = tostring(xml_content or "")
+
 	-- Check if XML differs from cached version
 	if vim.fn.filereadable(filepath) == 1 then
-		local old_content = vim.fn.readfile(filepath, "b")[1] or ""
+		local old_lines = vim.fn.readfile(filepath)
+		local old_content = table.concat(old_lines, "\n")
 		-- Compare only the actual content (items/entries), ignore all metadata
 		changed = (extract_feed_content(old_content) ~= extract_feed_content(xml_content))
 	else
@@ -60,8 +64,9 @@ function M.save_feed(url, xml_content)
 		changed = true
 	end
 
-	-- Write new XML to cache
-	vim.fn.writefile({xml_content}, filepath, "b")
+	-- Write new XML to cache (split into lines for writefile)
+	local lines = vim.split(xml_content, "\n")
+	vim.fn.writefile(lines, filepath)
 
 	return changed
 end
@@ -76,7 +81,8 @@ function M.read_feed(url)
 		return nil
 	end
 
-	return vim.fn.readfile(filepath, "b")[1]
+	local lines = vim.fn.readfile(filepath)
+	return table.concat(lines, "\n")
 end
 
 -- Check if a feed has cached data
