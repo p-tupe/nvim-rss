@@ -42,6 +42,15 @@ local function extract_feed_content(xml)
 	return table.concat(items, "")
 end
 
+-- Split string into lines (pure Lua, no vim.split)
+local function split_lines(str)
+	local lines = {}
+	for line in (str .. "\n"):gmatch("(.-)\n") do
+		table.insert(lines, line)
+	end
+	return lines
+end
+
 -- Save fetched XML and detect if it changed
 -- @param url Feed URL
 -- @param xml_content Raw XML content from the feed
@@ -51,7 +60,9 @@ function M.save_feed(url, xml_content)
 	local changed
 
 	-- Ensure content is a string
-	xml_content = tostring(xml_content or "")
+	if type(xml_content) ~= "string" then
+		xml_content = tostring(xml_content or "")
+	end
 
 	-- Check if XML differs from cached version
 	if vim.fn.filereadable(filepath) == 1 then
@@ -64,8 +75,8 @@ function M.save_feed(url, xml_content)
 		changed = true
 	end
 
-	-- Write new XML to cache (split into lines for writefile)
-	local lines = vim.split(xml_content, "\n")
+	-- Write new XML to cache
+	local lines = split_lines(xml_content)
 	vim.fn.writefile(lines, filepath)
 
 	return changed

@@ -121,6 +121,10 @@ local function web_request(url, callback)
 			end
 
 			local raw_feed = obj.stdout or ""
+			-- Ensure raw_feed is a string (vim.system may return Blob)
+			if type(raw_feed) ~= "string" then
+				raw_feed = tostring(raw_feed)
+			end
 
 			-- Save raw XML to cache and detect changes
 			local changed = cache.save_feed(url, raw_feed)
