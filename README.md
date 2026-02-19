@@ -4,6 +4,12 @@
 <p align="center">A simple rss reader for neovim.</p>
 <br />
 
+> [!IMPORTANT]
+>
+> **This plugin is complete!**
+>
+> It does what I set out to do, and I have fixed all the bugs I've encountered in my daily usage. With minimal dependencies and a pure lua implementation, the code should keep working for future neovim versions without any issues. If you do encounter problems, feel free to open up a new GitHub Issue and I will take a looksie. Besides that, I won't be updating this codebase anymore.
+
 ## Intro
 
 nvim-rss aims to be similar to the excellent [vnews](https://github.com/danchoi/vnews) and, if you squint hard enough while looking sideways, then perhaps [elfeed](https://github.com/skeeto/elfeed).
